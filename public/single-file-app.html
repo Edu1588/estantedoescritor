@@ -1,0 +1,1104 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Estante do ESCritor</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        serif: ['Lora', 'serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Lora:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .hide-scroll::-webkit-scrollbar {
+            display: none;
+        }
+
+        .hide-scroll {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+
+        /* ABNT Formatting Class */
+        .abnt-format {
+            font-family: 'Times New Roman', Times, serif;
+            font-size: 12pt;
+            line-height: 1.5;
+            text-align: justify;
+        }
+
+        .abnt-format p {
+            text-indent: 1.25cm;
+            margin-bottom: 0;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-900 overflow-hidden transition-colors duration-300">
+    <div id="root"></div>
+
+    <script type="text/babel" data-presets="react,typescript">
+        const { useState, useEffect, useRef, useCallback } = React;
+
+        // --- Icons ---
+        const { 
+            PenTool, Home, Library, BookOpen, Users, Settings, LogOut, 
+            Search, Bell, Menu, X, Clock, Award, Sparkles, Plus, 
+            MoreVertical, User, Link: LinkIcon, Globe, Moon, Sun, 
+            AlignLeft, CheckCircle2, Music, Maximize2, Minimize2, 
+            MessageSquare, Save, ChevronUp, ChevronDown, FileText, 
+            List, Bold, Italic, Underline, AlignCenter, AlignRight, 
+            AlignJustify, FileCheck, AlertTriangle, Image: ImageIcon,
+            Download, FileDown, Upload, TrendingUp
+        } = lucide.icons;
+
+        // --- Types ---
+        type View = 'dashboard' | 'projects' | 'editor' | 'community' | 'settings';
+        type Theme = 'light' | 'dark';
+        type Language = 'pt' | 'en' | 'es';
+
+        interface Chapter {
+            id: string;
+            title: string;
+            content: string;
+        }
+
+        interface AppState {
+            view: View;
+            theme: Theme;
+            language: Language;
+            userName: string;
+            userBioLink: string;
+            isBioPublic: boolean;
+            dailyGoal: number;
+            dailyProgress: number;
+            focusMode: boolean;
+            synopsis: string;
+            chapters: Chapter[];
+            activeChapterId: string | 'synopsis';
+            coverImage: string | null;
+        }
+
+        // --- i18n ---
+        const translations = {
+            pt: {
+                dashboard: 'Dashboard', projects: 'Meus Projetos', editor: 'Editor', community: 'Comunidade', settings: 'Configurações', logout: 'Sair',
+                goodMorning: 'Bom dia', dailyGoal: 'Meta Diária', streak: 'Ofensiva', currentProject: 'Projeto Atual', continueWriting: 'Continuar Escrevendo',
+                words: 'palavras', characters: 'caracteres', pages: 'páginas', chapter: 'Capítulo', synopsis: 'Sinopse', summary: 'Sumário',
+                save: 'Salvar', saving: 'Salvando...', saved: 'Salvo', theme: 'Tema', language: 'Idioma', profile: 'Perfil', name: 'Nome de Exibição',
+                bioLink: 'Link da Bio', publicProfile: 'Perfil Público', light: 'Claro', dark: 'Escuro', abnt: 'Formatar ABNT', checkRepetition: 'Verificar Repetições',
+                alignLeft: 'Esquerda', alignCenter: 'Centro', alignRight: 'Direita', justify: 'Justificar', bold: 'Negrito', italic: 'Itálico', underline: 'Sublinhado'
+            },
+            en: {
+                dashboard: 'Dashboard', projects: 'My Projects', editor: 'Editor', community: 'Community', settings: 'Settings', logout: 'Logout',
+                goodMorning: 'Good morning', dailyGoal: 'Daily Goal', streak: 'Streak', currentProject: 'Current Project', continueWriting: 'Continue Writing',
+                words: 'words', characters: 'characters', pages: 'pages', chapter: 'Chapter', synopsis: 'Synopsis', summary: 'Table of Contents',
+                save: 'Save', saving: 'Saving...', saved: 'Saved', theme: 'Theme', language: 'Language', profile: 'Profile', name: 'Display Name',
+                bioLink: 'Bio Link', publicProfile: 'Public Profile', light: 'Light', dark: 'Dark', abnt: 'ABNT Format', checkRepetition: 'Check Repetition',
+                alignLeft: 'Left', alignCenter: 'Center', alignRight: 'Right', justify: 'Justify', bold: 'Bold', italic: 'Italic', underline: 'Underline'
+            },
+            es: {
+                dashboard: 'Tablero', projects: 'Mis Proyectos', editor: 'Editor', community: 'Comunidad', settings: 'Configuración', logout: 'Cerrar Sesión',
+                goodMorning: 'Buenos días', dailyGoal: 'Meta Diaria', streak: 'Racha', currentProject: 'Proyecto Actual', continueWriting: 'Continuar Escribiendo',
+                words: 'palabras', characters: 'caracteres', pages: 'páginas', chapter: 'Capítulo', synopsis: 'Sinopsis', summary: 'Índice',
+                save: 'Guardar', saving: 'Guardando...', saved: 'Guardado', theme: 'Tema', language: 'Idioma', profile: 'Perfil', name: 'Nombre para mostrar',
+                bioLink: 'Enlace de Bio', publicProfile: 'Perfil Público', light: 'Claro', dark: 'Oscuro', abnt: 'Formato ABNT', checkRepetition: 'Verificar Repetición',
+                alignLeft: 'Izquierda', alignCenter: 'Centro', alignRight: 'Derecha', justify: 'Justificar', bold: 'Negrita', italic: 'Cursiva', underline: 'Subrayado'
+            }
+        };
+
+        function useTranslation(lang: Language) {
+            return translations[lang];
+        }
+
+        // --- Components ---
+
+        function Sidebar({ currentView, setView, focusMode, language }: { currentView: View; setView: (view: View) => void; focusMode: boolean; language: Language }) {
+            const t = useTranslation(language);
+            if (focusMode) return null;
+
+            const navItems = [
+                { id: 'dashboard', label: t.dashboard, icon: Home },
+                { id: 'projects', label: t.projects, icon: Library },
+                { id: 'editor', label: t.editor, icon: BookOpen },
+                { id: 'community', label: t.community, icon: Users },
+            ];
+
+            return (
+                <aside className="w-64 bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col justify-between transition-all duration-300 shrink-0">
+                    <div>
+                        <div className="h-16 flex items-center px-6 border-b border-slate-100 dark:border-slate-800">
+                            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400 font-bold text-xl">
+                                <PenTool className="w-6 h-6" />
+                                <span>Estante do <span className="text-indigo-600 dark:text-indigo-400">ESC</span>ritor</span>
+                            </div>
+                        </div>
+                        <nav className="p-4 space-y-1">
+                            {navItems.map((item) => {
+                                const isActive = currentView === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setView(item.id as View)}
+                                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
+                                            isActive 
+                                                ? 'text-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-300' 
+                                                : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                        }`}
+                                    >
+                                        <item.icon className="w-5 h-5" />
+                                        {item.label}
+                                    </button>
+                                );
+                            })}
+                        </nav>
+                    </div>
+                    <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+                        <button 
+                            onClick={() => setView('settings')}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium ${
+                                currentView === 'settings'
+                                    ? 'text-indigo-700 bg-indigo-50 dark:bg-indigo-900/20 dark:text-indigo-300'
+                                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                            }`}
+                        >
+                            <Settings className="w-5 h-5" />
+                            {t.settings}
+                        </button>
+                        <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-600">
+                            <LogOut className="w-5 h-5" />
+                            {t.logout}
+                        </button>
+                    </div>
+                </aside>
+            );
+        }
+
+        function Header({ focusMode }: { focusMode: boolean }) {
+            if (focusMode) return null;
+            return (
+                <header className="h-16 bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between px-6 shrink-0 transition-colors duration-300">
+                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-full px-4 py-2 w-96 transition-colors">
+                        <Search className="text-slate-400 dark:text-slate-500 w-4 h-4" />
+                        <input 
+                            type="text" 
+                            placeholder="Buscar em todos os projetos..." 
+                            className="bg-transparent border-none outline-none ml-2 w-full text-sm placeholder-slate-400 dark:placeholder-slate-500 text-slate-700 dark:text-slate-200"
+                        />
+                    </div>
+                    <div className="flex items-center gap-4">
+                        <button className="relative p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                            <Bell className="w-5 h-5" />
+                            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+                        </button>
+                        <div className="w-8 h-8 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-700 dark:text-indigo-300 rounded-full flex items-center justify-center font-bold text-sm">
+                            A
+                        </div>
+                    </div>
+                </header>
+            );
+        }
+
+        function Dashboard({ userName, dailyGoal, dailyProgress, setView }: { userName: string; dailyGoal: number; dailyProgress: number; setView: (view: View) => void }) {
+            const [time, setTime] = useState(new Date());
+
+            useEffect(() => {
+                const timer = setInterval(() => setTime(new Date()), 1000);
+                return () => clearInterval(timer);
+            }, []);
+
+            const percent = Math.min(Math.round((dailyProgress / dailyGoal) * 100), 100);
+
+            return (
+                <div className="p-8 max-w-6xl mx-auto space-y-8 fade-in">
+                    <div className="flex justify-between items-end">
+                        <div>
+                            <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Bom dia, {userName}! ☀️</h1>
+                            <p className="text-slate-500 dark:text-slate-400 mt-1">Que tal escrevermos um pouco hoje?</p>
+                        </div>
+                        <div className="text-right">
+                            <p className="text-2xl font-light text-slate-600 dark:text-slate-300">
+                                {time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <p className="text-sm text-slate-400 dark:text-slate-500">
+                                {time.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <h3 className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2 mb-4">
+                                    <Clock className="w-4 h-4" /> Meta Diária
+                                </h3>
+                                <div className="flex items-end gap-2 mb-2">
+                                    <span className="text-4xl font-bold text-indigo-600 dark:text-indigo-400">{dailyProgress}</span>
+                                    <span className="text-slate-400 dark:text-slate-500 mb-1">/ {dailyGoal} palavras</span>
+                                </div>
+                                <div className="w-full bg-slate-100 dark:bg-slate-700 h-3 rounded-full overflow-hidden">
+                                    <div 
+                                        className="bg-indigo-500 dark:bg-indigo-400 h-full transition-all duration-1000" 
+                                        style={{ width: `${percent}%` }}
+                                    ></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-orange-400 to-rose-500 p-6 rounded-2xl text-white shadow-sm relative overflow-hidden">
+                            <h3 className="font-medium flex items-center gap-2 mb-2 opacity-90">
+                                <Award className="w-4 h-4" /> Ofensiva
+                            </h3>
+                            <div className="text-5xl font-bold mb-2">7 Dias</div>
+                            <p className="text-orange-100 text-sm">Você está pegando fogo!</p>
+                            <Sparkles className="absolute -bottom-4 -right-4 w-32 h-32 text-white opacity-20" />
+                        </div>
+
+                        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div className="flex justify-between items-start mb-4">
+                                    <h3 className="text-slate-500 dark:text-slate-400 font-medium flex items-center gap-2">
+                                        <BookOpen className="w-4 h-4" /> Projeto Atual
+                                    </h3>
+                                    <span className="bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-xs px-2 py-1 rounded-full font-medium">Rascunho</span>
+                                </div>
+                                <h2 className="text-xl font-bold text-slate-800 dark:text-white mb-1">O Eco do Silêncio</h2>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 line-clamp-2">Capítulo 4: Onde as pistas começam a fazer sentido...</p>
+                            </div>
+                            <button 
+                                onClick={() => setView('editor')} 
+                                className="mt-4 w-full bg-slate-900 dark:bg-slate-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-slate-800 dark:hover:bg-slate-600 transition-colors cursor-pointer"
+                            >
+                                Continuar Escrevendo
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Projects({ setView, projects, onUpdateProjectCover }: { setView: (view: View) => void; projects: any[]; onUpdateProjectCover: (id: string, img: string | null) => void }) {
+            const fileInputRef = useRef(null);
+            const activeProjectIdRef = useRef(null);
+
+            const handleCoverClick = (e, projectId) => {
+                e.stopPropagation();
+                activeProjectIdRef.current = projectId;
+                fileInputRef.current?.click();
+            };
+
+            const handleFileChange = (e) => {
+                const file = e.target.files?.[0];
+                if (file && activeProjectIdRef.current) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        onUpdateProjectCover(activeProjectIdRef.current, reader.result);
+                        activeProjectIdRef.current = null;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleDownload = (e, type) => {
+                e.stopPropagation();
+                alert(`Iniciando download: ${type}`);
+            };
+
+            return (
+                <div className="p-8 max-w-6xl mx-auto fade-in">
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*"
+                        onChange={handleFileChange}
+                    />
+                    <div className="flex justify-between items-center mb-8">
+                        <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Minha Estante</h1>
+                        <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-indigo-700 flex items-center gap-2 cursor-pointer transition-colors">
+                            <Plus className="w-4 h-4" /> Novo Projeto
+                        </button>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                        {projects.map((p) => (
+                            <div 
+                                key={p.id}
+                                onClick={() => setView('editor')} 
+                                className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm hover:shadow-md transition-all cursor-pointer flex flex-col h-72 group"
+                            >
+                                <div className={`h-3/5 w-full ${p.coverImage ? p.color : 'bg-gradient-to-br from-violet-600 to-indigo-600'} flex items-center justify-center p-6 relative overflow-hidden`}>
+                                    {p.coverImage ? (
+                                        <img src={p.coverImage} alt={p.title} className="absolute inset-0 w-full h-full object-cover" />
+                                    ) : (
+                                        <div className="flex flex-col items-center justify-center text-white z-10 relative">
+                                            <Book className="w-12 h-12 mb-3 opacity-90 drop-shadow-md" />
+                                            <h3 className="font-serif text-xl font-bold text-center drop-shadow-md leading-tight">{p.title}</h3>
+                                        </div>
+                                    )}
+                                    
+                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center z-20 gap-3">
+                                        <button 
+                                            onClick={(e) => handleCoverClick(e, p.id)}
+                                            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white px-3 py-1.5 rounded-full text-xs font-medium flex items-center gap-1 transition-colors border border-white/40"
+                                        >
+                                            <Upload className="w-3 h-3" /> Alterar Capa
+                                        </button>
+                                        <div className="flex gap-2">
+                                            <button 
+                                                onClick={(e) => handleDownload(e, 'PDF Completo')}
+                                                className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-colors border border-white/40"
+                                                title="Baixar PDF"
+                                            >
+                                                <FileDown className="w-3 h-3" />
+                                            </button>
+                                            <button 
+                                                onClick={(e) => handleDownload(e, 'ePub')}
+                                                className="p-2 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full transition-colors border border-white/40"
+                                                title="Baixar ePub"
+                                            >
+                                                <Book className="w-3 h-3" />
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <span className="absolute top-3 right-3 bg-white/20 text-white text-[10px] px-2 py-1 rounded-full backdrop-blur-sm z-20">
+                                        {p.status}
+                                    </span>
+                                </div>
+                                <div className="p-4 flex-1 flex flex-col justify-between">
+                                    <h4 className="font-medium text-slate-800 dark:text-white truncate" title={p.title}>{p.title}</h4>
+                                    <div className="text-[11px] text-slate-400 dark:text-slate-500 flex justify-between uppercase tracking-wider items-center">
+                                        <span>{p.genre}</span>
+                                        <MoreVertical className="w-3 h-3" />
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+
+                        <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-xl flex flex-col items-center justify-center text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:border-indigo-300 dark:hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all cursor-pointer h-72 group">
+                            <Plus className="w-8 h-8 mb-2 group-hover:scale-110 transition-transform" />
+                            <span className="font-medium">Novo Livro</span>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function Community() {
+            const users = [
+                { name: 'Maria Silva', bio: 'Escritora de fantasia e RPG.', book: 'O Reino de Vidro', progress: 75, link: 'https://maria.com' },
+                { name: 'João Souza', bio: 'Amante de sci-fi e café.', book: 'Andrômeda 5', progress: 30, link: 'https://joao.net' },
+                { name: 'Ana Clara', bio: 'Poetisa nas horas vagas.', book: 'Versos Livres', progress: 90, link: 'https://ana.art' },
+                { name: 'Carlos Dias', bio: 'Thriller psicológico é comigo.', book: 'Mente Sombria', progress: 15, link: null },
+            ];
+
+            return (
+                <div className="p-8 max-w-6xl mx-auto fade-in">
+                    <div className="mb-8">
+                        <h1 className="text-3xl font-bold text-slate-800 dark:text-white">Comunidade</h1>
+                        <p className="text-slate-500 dark:text-slate-400 mt-2">Conecte-se com outros escritores e acompanhe seus progressos.</p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {users.map((user, index) => (
+                            <div key={index} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm hover:shadow-md transition-shadow">
+                                <div className="flex items-start justify-between mb-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center font-bold">
+                                            {user.name.charAt(0)}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-slate-800 dark:text-white">{user.name}</h3>
+                                            {user.link && (
+                                                <a href={user.link} target="_blank" rel="noopener noreferrer" className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline">
+                                                    Ver Bio
+                                                </a>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <p className="text-sm text-slate-600 dark:text-slate-400 mb-4 italic">"{user.bio}"</p>
+
+                                <div className="bg-slate-50 dark:bg-slate-700/50 rounded-lg p-3">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-200 mb-2">
+                                        <BookOpen className="w-4 h-4" />
+                                        {user.book}
+                                    </div>
+                                    <div className="space-y-1">
+                                        <div className="flex justify-between text-xs text-slate-500 dark:text-slate-400">
+                                            <span className="flex items-center gap-1"><TrendingUp className="w-3 h-3" /> Progresso</span>
+                                            <span>{user.progress}%</span>
+                                        </div>
+                                        <div className="w-full bg-slate-200 dark:bg-slate-600 h-2 rounded-full overflow-hidden">
+                                            <div 
+                                                className="bg-emerald-500 h-full rounded-full" 
+                                                style={{ width: `${user.progress}%` }}
+                                            ></div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            );
+        }
+
+        function Settings({ state, updateState }: { state: AppState; updateState: (updates: Partial<AppState>) => void }) {
+            const t = useTranslation(state.language);
+            const [bioError, setBioError] = useState(false);
+
+            const validateUrl = (url: string) => {
+                if (!url) return true;
+                try {
+                    new URL(url);
+                    return true;
+                } catch {
+                    return false;
+                }
+            };
+
+            const handleBioChange = (value: string) => {
+                updateState({ userBioLink: value });
+                setBioError(!validateUrl(value));
+            };
+
+            return (
+                <div className="p-8 max-w-4xl mx-auto fade-in">
+                    <h1 className="text-3xl font-bold text-slate-800 dark:text-white mb-8">{t.settings}</h1>
+
+                    <div className="space-y-6">
+                        {/* Perfil */}
+                        <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                            <h2 className="text-xl font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                                <User className="w-5 h-5" /> {t.profile}
+                            </h2>
+                            
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.name}</label>
+                                    <input 
+                                        type="text" 
+                                        value={state.userName}
+                                        onChange={(e) => updateState({ userName: e.target.value })}
+                                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">{t.bioLink}</label>
+                                    <div className="flex items-center gap-2">
+                                        <LinkIcon className={`w-4 h-4 ${bioError ? 'text-red-500' : 'text-slate-400'}`} />
+                                        <input 
+                                            type="text" 
+                                            value={state.userBioLink}
+                                            onChange={(e) => handleBioChange(e.target.value)}
+                                            placeholder="https://seusite.com/autor"
+                                            className={`flex-1 px-3 py-2 border rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 ${
+                                                bioError 
+                                                    ? 'border-red-300 focus:ring-red-500 dark:border-red-700' 
+                                                    : 'border-slate-300 dark:border-slate-600 focus:ring-indigo-500'
+                                            }`}
+                                        />
+                                    </div>
+                                    {bioError && (
+                                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" /> URL inválida. Certifique-se de incluir http:// ou https://
+                                        </p>
+                                    )}
+                                </div>
+
+                                <div className="flex items-center justify-between pt-2">
+                                    <div className="flex flex-col">
+                                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">{t.publicProfile}</span>
+                                        <span className="text-xs text-slate-500 dark:text-slate-400">Aparecer na aba Comunidade</span>
+                                    </div>
+                                    <button 
+                                        onClick={() => updateState({ isBioPublic: !state.isBioPublic })}
+                                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                                            state.isBioPublic ? 'bg-indigo-600' : 'bg-slate-200 dark:bg-slate-700'
+                                        }`}
+                                    >
+                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                                            state.isBioPublic ? 'translate-x-6' : 'translate-x-1'
+                                        }`} />
+                                    </button>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Aparência e Idioma */}
+                        <section className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 p-6 shadow-sm">
+                            <h2 className="text-xl font-semibold text-slate-800 dark:text-white mb-4 flex items-center gap-2">
+                                <Globe className="w-5 h-5" /> Preferências
+                            </h2>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t.theme}</label>
+                                    <div className="flex gap-2">
+                                        <button 
+                                            onClick={() => updateState({ theme: 'light' })}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                                                state.theme === 'light' 
+                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300' 
+                                                    : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'
+                                            }`}
+                                        >
+                                            <Sun className="w-4 h-4" /> {t.light}
+                                        </button>
+                                        <button 
+                                            onClick={() => updateState({ theme: 'dark' })}
+                                            className={`flex items-center gap-2 px-4 py-2 rounded-lg border ${
+                                                state.theme === 'dark' 
+                                                    ? 'bg-indigo-50 border-indigo-200 text-indigo-700 dark:bg-indigo-900/30 dark:border-indigo-700 dark:text-indigo-300' 
+                                                    : 'border-slate-200 dark:border-slate-600 text-slate-600 dark:text-slate-400'
+                                            }`}
+                                        >
+                                            <Moon className="w-4 h-4" /> {t.dark}
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">{t.language}</label>
+                                    <select 
+                                        value={state.language}
+                                        onChange={(e) => updateState({ language: e.target.value as Language })}
+                                        className="w-full px-3 py-2 border border-slate-300 dark:border-slate-600 rounded-lg bg-transparent dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                    >
+                                        <option value="pt">Português (BR)</option>
+                                        <option value="en">English</option>
+                                        <option value="es">Español</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+            );
+        }
+
+        function Editor({ 
+            chapters, activeChapterId, activeChapterContent, activeChapterTitle,
+            focusMode, toggleFocus, updateContent, onAddChapter, onSelectChapter,
+            onReorderChapters, language, coverImage, onUpdateCover
+        }: {
+            chapters: Chapter[]; activeChapterId: string | 'synopsis'; activeChapterContent: string; activeChapterTitle: string;
+            focusMode: boolean; toggleFocus: () => void; updateContent: (content: string) => void;
+            onAddChapter: () => void; onSelectChapter: (id: string | 'synopsis') => void;
+            onReorderChapters: (startIndex: number, endIndex: number) => void; language: Language;
+            coverImage: string | null; onUpdateCover: (image: string | null) => void;
+        }) {
+            const t = useTranslation(language);
+            const [content, setContent] = useState(activeChapterContent);
+            const [isSaving, setIsSaving] = useState(false);
+            const [lastSaved, setLastSaved] = useState(Date.now());
+            const [showRepetitions, setShowRepetitions] = useState(false);
+            const [repeatedWords, setRepeatedWords] = useState<string[]>([]);
+            const [isAbntMode, setIsAbntMode] = useState(false);
+            const fileInputRef = useRef<HTMLInputElement>(null);
+
+            useEffect(() => {
+                setContent(activeChapterContent);
+            }, [activeChapterId, activeChapterContent]);
+
+            const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+            const chars = content.length;
+            const pages = Math.max(1, Math.ceil(words / 600));
+
+            const contentRef = useRef(content);
+            useEffect(() => { contentRef.current = content; }, [content]);
+
+            useEffect(() => {
+                let timeoutId;
+                const interval = setInterval(() => {
+                    setIsSaving(true);
+                    timeoutId = setTimeout(() => {
+                        updateContent(contentRef.current);
+                        setLastSaved(Date.now());
+                        setIsSaving(false);
+                    }, 500);
+                }, 2 * 60 * 1000);
+                return () => { clearInterval(interval); clearTimeout(timeoutId); };
+            }, [updateContent]);
+
+            useEffect(() => {
+                setIsSaving(true);
+                const timer = setTimeout(() => {
+                    setIsSaving(false);
+                    setLastSaved(Date.now());
+                    updateContent(content);
+                }, 1000);
+                return () => clearTimeout(timer);
+            }, [content, updateContent]);
+
+            const containerStyle = focusMode ? 'fixed inset-0 z-50 p-4' : 'flex h-full';
+            const editorBoxStyle = focusMode 
+                ? 'max-w-4xl mx-auto shadow-2xl h-full rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800' 
+                : 'flex-1 flex flex-col bg-white dark:bg-slate-800';
+
+            const handleMoveChapter = (e, index, direction) => {
+                e.stopPropagation();
+                if (direction === 'up' && index > 0) onReorderChapters(index, index - 1);
+                else if (direction === 'down' && index < chapters.length - 1) onReorderChapters(index, index + 1);
+            };
+
+            const checkRepetitions = () => {
+                const wordsArray = content.toLowerCase().match(/\b\w+\b/g);
+                if (!wordsArray) return;
+                const wordCounts = {};
+                wordsArray.forEach(word => {
+                    if (word.length > 3) wordCounts[word] = (wordCounts[word] || 0) + 1;
+                });
+                const repeated = Object.entries(wordCounts)
+                    .filter(([_, count]) => count > 3)
+                    .sort((a, b) => b[1] - a[1])
+                    .map(([word]) => word);
+                setRepeatedWords(repeated);
+                setShowRepetitions(!showRepetitions);
+            };
+
+            const toggleAbnt = () => setIsAbntMode(!isAbntMode);
+            const insertFormat = (format) => console.log(`Format: ${format}`);
+
+            const handleCoverUpload = (e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onloadend = () => onUpdateCover(reader.result as string);
+                    reader.readAsDataURL(file);
+                }
+            };
+
+            const handleDownload = (type) => {
+                alert(`Iniciando download: ${type === 'pdf-all' ? 'Projeto Completo (PDF)' : type === 'pdf-page' ? 'Página Atual (PDF)' : 'ePub'}`);
+            };
+
+            return (
+                <div className={`${containerStyle} bg-slate-50 dark:bg-slate-950 transition-all duration-500`}>
+                    {!focusMode && (
+                        <div className="w-64 bg-slate-50 dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800 flex flex-col shrink-0 animate-in slide-in-from-left">
+                            <div className="p-4 border-b border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900 flex justify-between items-center">
+                                <h3 className="font-medium text-slate-700 dark:text-slate-300 flex items-center gap-2">
+                                    <List className="w-4 h-4" /> {t.summary}
+                                </h3>
+                            </div>
+                            
+                            <div className="p-2 space-y-1 overflow-auto flex-1">
+                                <div className="mb-4 px-3">
+                                    <div className="relative group aspect-[2/3] bg-slate-200 dark:bg-slate-800 rounded-lg overflow-hidden border border-slate-300 dark:border-slate-700 shadow-sm mb-2">
+                                        {coverImage ? (
+                                            <img src={coverImage} alt="Capa do Livro" className="w-full h-full object-cover" />
+                                        ) : (
+                                            <div className="w-full h-full flex flex-col items-center justify-center text-slate-400">
+                                                <ImageIcon className="w-8 h-8 mb-2" />
+                                                <span className="text-xs">Sem Capa</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    
+                                    <div className="grid grid-cols-3 gap-1">
+                                        <button onClick={() => handleDownload('pdf-all')} className="flex flex-col items-center justify-center p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors" title="Baixar PDF Completo">
+                                            <FileDown className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                                            <span className="text-[10px] text-slate-500 dark:text-slate-500 mt-1">PDF</span>
+                                        </button>
+                                        <button onClick={() => handleDownload('pdf-page')} className="flex flex-col items-center justify-center p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors" title="Baixar Página Atual">
+                                            <FileText className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                                            <span className="text-[10px] text-slate-500 dark:text-slate-500 mt-1">Pág</span>
+                                        </button>
+                                        <button onClick={() => handleDownload('epub')} className="flex flex-col items-center justify-center p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors" title="Baixar ePub">
+                                            <BookOpen className="w-4 h-4 text-slate-600 dark:text-slate-400" />
+                                            <span className="text-[10px] text-slate-500 dark:text-slate-500 mt-1">ePub</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="my-2 border-t border-slate-200 dark:border-slate-800"></div>
+
+                                <div 
+                                    onClick={() => onSelectChapter('synopsis')}
+                                    className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm cursor-pointer transition-colors ${
+                                        activeChapterId === 'synopsis'
+                                            ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm font-medium text-indigo-700 dark:text-indigo-400'
+                                            : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                    }`}
+                                >
+                                    <BookOpen className="w-4 h-4" />
+                                    {t.synopsis}
+                                </div>
+
+                                <div className="flex items-center justify-between px-3 py-1 text-xs font-semibold text-slate-400 uppercase tracking-wider mt-2">
+                                    <span>{t.chapter}s</span>
+                                    <button 
+                                        onClick={onAddChapter}
+                                        className="p-1 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+                                        title="Novo Capítulo"
+                                    >
+                                        <Plus className="w-3 h-3" />
+                                    </button>
+                                </div>
+
+                                {chapters.map((chapter, index) => {
+                                    const isActive = chapter.id === activeChapterId;
+                                    const chapterWords = chapter.content.trim() ? chapter.content.trim().split(/\s+/).length : 0;
+                                    const chapterPages = Math.max(1, Math.ceil(chapterWords / 600));
+
+                                    return (
+                                        <div key={chapter.id} className="space-y-1">
+                                            <div 
+                                                onClick={() => onSelectChapter(chapter.id)}
+                                                className={`group flex items-center justify-between px-3 py-2 rounded-md text-sm cursor-pointer transition-colors ${
+                                                    isActive 
+                                                        ? 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm font-medium text-indigo-700 dark:text-indigo-400' 
+                                                        : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2 truncate">
+                                                    <FileText className="w-4 h-4 shrink-0" />
+                                                    <span className="truncate">{chapter.title}</span>
+                                                </div>
+                                                
+                                                <div className={`flex items-center gap-1 ${isActive ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'} transition-opacity`}>
+                                                    <button 
+                                                        onClick={(e) => handleMoveChapter(e, index, 'up')}
+                                                        disabled={index === 0}
+                                                        className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded disabled:opacity-30"
+                                                    >
+                                                        <ChevronUp className="w-3 h-3" />
+                                                    </button>
+                                                    <button 
+                                                        onClick={(e) => handleMoveChapter(e, index, 'down')}
+                                                        disabled={index === chapters.length - 1}
+                                                        className="p-0.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded disabled:opacity-30"
+                                                    >
+                                                        <ChevronDown className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            {isActive && (
+                                                <div className="pl-9 pr-2 space-y-0.5">
+                                                    {Array.from({ length: chapterPages }).map((_, i) => (
+                                                        <div key={i} className="text-xs text-slate-400 flex items-center gap-2 py-1">
+                                                            <div className="w-1 h-1 rounded-full bg-slate-300 dark:bg-slate-600"></div>
+                                                            {t.pages} {i + 1}
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className={editorBoxStyle}>
+                        <div className="h-10 border-b border-slate-100 dark:border-slate-700 flex items-center px-4 gap-2 bg-slate-50 dark:bg-slate-800 shrink-0 overflow-x-auto hide-scroll">
+                            <div className="flex items-center gap-1 pr-2 border-r border-slate-200 dark:border-slate-700">
+                                <button onClick={() => insertFormat('bold')} className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title={t.bold}><Bold className="w-4 h-4" /></button>
+                                <button onClick={() => insertFormat('italic')} className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title={t.italic}><Italic className="w-4 h-4" /></button>
+                                <button onClick={() => insertFormat('underline')} className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title={t.underline}><Underline className="w-4 h-4" /></button>
+                            </div>
+                            
+                            <div className="flex items-center gap-1 pr-2 border-r border-slate-200 dark:border-slate-700">
+                                <button className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title={t.alignLeft}><AlignLeft className="w-4 h-4" /></button>
+                                <button className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title={t.alignCenter}><AlignCenter className="w-4 h-4" /></button>
+                                <button className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title={t.alignRight}><AlignRight className="w-4 h-4" /></button>
+                                <button className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-slate-600 dark:text-slate-400" title={t.justify}><AlignJustify className="w-4 h-4" /></button>
+                            </div>
+
+                            <div className="flex items-center gap-2 ml-auto">
+                                <button 
+                                    onClick={toggleAbnt}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                        isAbntMode 
+                                            ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/50 dark:text-indigo-300' 
+                                            : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                    }`}
+                                >
+                                    <FileCheck className="w-3 h-3" /> {t.abnt}
+                                </button>
+                                <button 
+                                    onClick={checkRepetitions}
+                                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                        showRepetitions 
+                                            ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-300' 
+                                            : 'hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-400'
+                                    }`}
+                                >
+                                    <AlertTriangle className="w-3 h-3" /> {t.checkRepetition}
+                                </button>
+                            </div>
+                        </div>
+
+                        {showRepetitions && repeatedWords.length > 0 && (
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border-b border-amber-100 dark:border-amber-800 px-4 py-2 text-xs text-amber-800 dark:text-amber-200 flex items-center gap-2 overflow-x-auto">
+                                <span className="font-bold shrink-0">Repetições:</span>
+                                {repeatedWords.map((word, i) => (
+                                    <span key={i} className="bg-white dark:bg-amber-900/50 px-1.5 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                                        {word}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        <div className="h-14 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between px-6 shrink-0">
+                            <div className="flex items-center gap-4">
+                                <span className="font-serif font-medium text-slate-800 dark:text-slate-200">{activeChapterTitle}</span>
+                                <span className="text-xs text-emerald-600 dark:text-emerald-400 flex items-center gap-1 transition-all duration-300">
+                                    {isSaving ? (
+                                        <>
+                                            <Save className="w-3 h-3 animate-pulse" /> {t.saving}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <CheckCircle2 className="w-3 h-3" /> {t.saved}
+                                        </>
+                                    )}
+                                </span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <button className="p-2 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md text-slate-500 dark:text-slate-400 transition-colors cursor-pointer">
+                                    <Music className="w-4 h-4" />
+                                </button>
+                                <button 
+                                    onClick={toggleFocus} 
+                                    className={`p-2 rounded-md transition-colors cursor-pointer ${
+                                        focusMode ? 'bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-500 dark:text-slate-400'
+                                    }`}
+                                >
+                                    {focusMode ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="flex-1 overflow-auto p-8 lg:px-24 relative">
+                            <textarea 
+                                value={content}
+                                onChange={(e) => setContent(e.target.value)}
+                                className={`w-full h-full resize-none outline-none text-lg leading-relaxed text-slate-800 dark:text-slate-200 bg-transparent placeholder-slate-300 dark:placeholder-slate-600 ${
+                                    isAbntMode ? 'abnt-format' : 'font-serif'
+                                }`}
+                                placeholder="Sua história começa aqui..."
+                            />
+                        </div>
+
+                        <div className="h-10 border-t border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 flex items-center px-6 text-[10px] text-slate-400 justify-between shrink-0">
+                            <div>{words} {t.words} | {chars} {t.characters} | {pages} {pages === 1 ? t.pages.slice(0, -1) : t.pages}</div>
+                            <div className="flex gap-4">
+                                <span className="flex items-center gap-1 cursor-pointer hover:text-slate-600 dark:hover:text-slate-300 transition-colors">
+                                    <MessageSquare className="w-3 h-3" /> Notas
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
+        function App() {
+            const INITIAL_CONTENT = `O relógio marcava meia-noite quando a chuva começou a cair, batendo contra a janela como dedos impacientes exigindo entrada.`;
+            
+            const [state, setState] = useState({
+                view: 'dashboard',
+                theme: 'light',
+                language: 'pt',
+                userName: 'Escritor',
+                userBioLink: '',
+                isBioPublic: false,
+                dailyGoal: 2000,
+                dailyProgress: 1450,
+                focusMode: false,
+                synopsis: '',
+                chapters: [
+                    { id: '1', title: 'Capítulo 1: O Início', content: INITIAL_CONTENT },
+                    { id: '2', title: 'Capítulo 2: A Descoberta', content: '' },
+                ],
+                activeChapterId: '1',
+                coverImage: null,
+                projects: [
+                    { id: '1', title: "O Eco do Silêncio", genre: "Thriller", status: "Rascunho", color: "bg-slate-800", coverImage: null },
+                    { id: '2', title: "Além das Estrelas", genre: "Ficção Científica", status: "Em Revisão", color: "bg-indigo-900", coverImage: null },
+                    { id: '3', title: "Crônicas de Eldoria", genre: "Fantasia", status: "Concluído", color: "bg-emerald-800", coverImage: null }
+                ]
+            });
+
+            useEffect(() => {
+                if (state.theme === 'dark') document.documentElement.classList.add('dark');
+                else document.documentElement.classList.remove('dark');
+            }, [state.theme]);
+
+            const setView = (view) => setState(prev => ({ ...prev, view }));
+            const toggleFocus = () => setState(prev => ({ ...prev, focusMode: !prev.focusMode }));
+            const updateState = (updates) => setState(prev => ({ ...prev, ...updates }));
+
+            const updateChapterContent = (content) => {
+                if (state.activeChapterId === 'synopsis') {
+                    setState(prev => ({ ...prev, synopsis: content }));
+                } else {
+                    setState(prev => ({
+                        ...prev,
+                        chapters: prev.chapters.map(ch => ch.id === prev.activeChapterId ? { ...ch, content } : ch)
+                    }));
+                }
+            };
+
+            const addChapter = () => {
+                const newChapter = {
+                    id: Date.now().toString(),
+                    title: `Capítulo ${state.chapters.length + 1}`,
+                    content: ''
+                };
+                setState(prev => ({
+                    ...prev,
+                    chapters: [...prev.chapters, newChapter],
+                    activeChapterId: newChapter.id
+                }));
+            };
+
+            const selectChapter = (id) => setState(prev => ({ ...prev, activeChapterId: id }));
+
+            const reorderChapters = (startIndex, endIndex) => {
+                const result = Array.from(state.chapters);
+                const [removed] = result.splice(startIndex, 1);
+                result.splice(endIndex, 0, removed);
+                setState(prev => ({ ...prev, chapters: result }));
+            };
+
+            const getActiveContent = () => {
+                if (state.activeChapterId === 'synopsis') return state.synopsis;
+                const chapter = state.chapters.find(c => c.id === state.activeChapterId);
+                return chapter ? chapter.content : '';
+            };
+
+            const getActiveTitle = () => {
+                if (state.activeChapterId === 'synopsis') return 'Sinopse';
+                const chapter = state.chapters.find(c => c.id === state.activeChapterId);
+                return chapter ? chapter.title : '';
+            };
+
+            const updateCoverImage = (image) => {
+                setState(prev => ({ ...prev, coverImage: image }));
+            };
+
+            const updateProjectCover = (projectId, image) => {
+                setState(prev => {
+                    const updatedProjects = prev.projects.map(p => 
+                        p.id === projectId ? { ...p, coverImage: image } : p
+                    );
+                    
+                    // If updating the active project (assuming ID '1' is active for this demo), update main coverImage too
+                    const newCoverImage = projectId === '1' ? image : prev.coverImage;
+                    
+                    return {
+                        ...prev,
+                        projects: updatedProjects,
+                        coverImage: newCoverImage
+                    };
+                });
+            };
+
+            return (
+                <div className="flex h-screen overflow-hidden bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
+                    <Sidebar 
+                        currentView={state.view} 
+                        setView={setView} 
+                        focusMode={state.focusMode} 
+                        language={state.language}
+                    />
+
+                    <main className="flex-1 flex flex-col h-full overflow-hidden relative transition-all duration-300">
+                        <Header focusMode={state.focusMode} />
+
+                        <div className="flex-1 overflow-auto hide-scroll">
+                            {state.view === 'dashboard' && (
+                                <Dashboard 
+                                    userName={state.userName}
+                                    dailyGoal={state.dailyGoal}
+                                    dailyProgress={state.dailyProgress}
+                                    setView={setView}
+                                />
+                            )}
+                            
+                            {state.view === 'projects' && (
+                                <Projects 
+                                    setView={setView} 
+                                    projects={state.projects}
+                                    onUpdateProjectCover={updateProjectCover}
+                                />
+                            )}
+                            
+                            {state.view === 'community' && (
+                                <Community />
+                            )}
+
+                            {state.view === 'settings' && (
+                                <Settings state={state} updateState={updateState} />
+                            )}
+                            
+                            {state.view === 'editor' && (
+                                <Editor 
+                                    chapters={state.chapters}
+                                    activeChapterId={state.activeChapterId}
+                                    activeChapterContent={getActiveContent()}
+                                    activeChapterTitle={getActiveTitle()}
+                                    focusMode={state.focusMode}
+                                    toggleFocus={toggleFocus}
+                                    updateContent={updateChapterContent}
+                                    onAddChapter={addChapter}
+                                    onSelectChapter={selectChapter}
+                                    onReorderChapters={reorderChapters}
+                                    language={state.language}
+                                    coverImage={state.coverImage}
+                                    onUpdateCover={updateCoverImage}
+                                />
+                            )}
+                        </div>
+                    </main>
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>

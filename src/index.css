@@ -1,0 +1,105 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Lora", ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+}
+
+/* Force dark mode variant to use the .dark class */
+@variant dark (&:where(.dark, .dark *));
+
+.fade-in {
+  animation: fadeIn 0.5s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.hide-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.hide-scroll {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ABNT Formatting Class */
+.abnt-format {
+  font-family: 'Times New Roman', Times, serif;
+  font-size: 12pt;
+  line-height: 1.5;
+  text-align: justify;
+}
+
+.abnt-format p {
+  text-indent: 1.25cm;
+  margin-bottom: 0;
+}
+
+/* Liquid Glass & Shimmer Effects */
+@keyframes border-spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.shimmer-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.5rem;
+  padding: 1px;
+}
+
+.shimmer-wrapper::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    transparent,
+    rgba(255, 255, 255, 0.4),
+    transparent 30%
+  );
+  animation: border-spin 4s linear infinite;
+}
+
+.shimmer-wrapper.pro::before {
+  background: conic-gradient(
+    transparent,
+    rgba(167, 139, 250, 0.8),
+    transparent 30%
+  );
+}
+
+.shimmer-wrapper.premium::before {
+  background: conic-gradient(
+    transparent,
+    rgba(251, 191, 36, 0.8),
+    transparent 30%
+  );
+}
+
+.shimmer-content {
+  position: relative;
+  z-index: 10;
+  height: 100%;
+  border-radius: calc(1.5rem - 1px);
+}
+
+.liquid-glass {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.05);
+}
+
+.dark .liquid-glass {
+  background: rgba(15, 23, 42, 0.5);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
